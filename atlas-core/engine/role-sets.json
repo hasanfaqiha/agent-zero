@@ -1,0 +1,342 @@
+{
+  "software": {
+    "status": "active",
+    "description": "Venture-parameterized software build. Roles scale with ask size — never a fixed 10.",
+    "roles": [
+      {
+        "id": "pm",
+        "mandate": "Author specs/contracts/PRD.md: scope, user stories, acceptance criteria, explicit non-goals. No feature creep; each story must be verifiable.",
+        "output": "work/pm/",
+        "gate": "files"
+      },
+      {
+        "id": "arch",
+        "mandate": "Author specs/contracts/ARCHITECTURE.md and schema.sql: data model, API surface, ADRs. Decisions must be testable and bounded.",
+        "output": "work/arch/",
+        "gate": "files"
+      },
+      {
+        "id": "backend",
+        "mandate": "Implement API + persistence per locked contracts. Deliver working code; every public function exercised by a test.",
+        "output": "work/backend/",
+        "gate": "test"
+      },
+      {
+        "id": "client",
+        "mandate": "Implement UI consuming the locked API. No inventing endpoints; if contract is insufficient, flag drift, do not edit specs/.",
+        "output": "work/client/",
+        "gate": "shell"
+      },
+      {
+        "id": "qa",
+        "mandate": "Independently author and RUN the test suite against produced code. Report actual exit codes and coverage, never predicted results.",
+        "output": "work/qa/",
+        "gate": "test"
+      },
+      {
+        "id": "security",
+        "mandate": "Run real scans (secret grep, dependency audit, auth review) and report tool output verbatim. No hardcoded verdicts.",
+        "output": "work/security/",
+        "gate": "shell"
+      }
+    ],
+    "gates": [
+      {
+        "role": "pm",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "arch",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "backend",
+        "kind": "test",
+        "commands": [
+          "python3 -m pytest -q"
+        ]
+      },
+      {
+        "role": "client",
+        "kind": "shell",
+        "commands": [
+          "npm run build 2>/dev/null || python3 -c \"print('client: no build step declared — UNVERIFIED')\"; exit 0"
+        ]
+      },
+      {
+        "role": "qa",
+        "kind": "test",
+        "commands": [
+          "python3 -m pytest -q"
+        ]
+      },
+      {
+        "role": "security",
+        "kind": "shell",
+        "commands": [
+          "grep -rE 'sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|AGNES_[A-Z0-9]{10,}' work/ ../specs/ || echo no-secrets-found"
+        ]
+      }
+    ]
+  },
+  "design-studio": {
+    "status": "active",
+    "description": "Akar-style design engagements. Objective where checkable, UNVERIFIED otherwise.",
+    "roles": [
+      {
+        "id": "creative-director",
+        "mandate": "Define concept, visual language, and art direction brief. Output must name specific deliverables and acceptance tests.",
+        "output": "work/creative-director/",
+        "gate": "files"
+      },
+      {
+        "id": "copywriter",
+        "mandate": "Write brand copy per art direction brief. Every claim traceable to source material.",
+        "output": "work/copywriter/",
+        "gate": "no-gate"
+      },
+      {
+        "id": "visual-qa",
+        "mandate": "Check contrast ratios, asset specs, file deliverables. Run real tools; report numbers.",
+        "output": "work/visual-qa/",
+        "gate": "shell"
+      }
+    ],
+    "gates": [
+      {
+        "role": "creative-director",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "copywriter",
+        "kind": "no-gate"
+      },
+      {
+        "role": "visual-qa",
+        "kind": "shell",
+        "commands": [
+          "ls work/visual-qa/*.md | head -5"
+        ]
+      }
+    ]
+  },
+  "content-factory": {
+    "status": "active",
+    "description": "Microstock/photo/pattern/video production. File-level objective checks.",
+    "roles": [
+      {
+        "id": "art-director",
+        "mandate": "Trend + concept brief per production spec, with target keywords and market positioning.",
+        "output": "work/art-director/",
+        "gate": "files"
+      },
+      {
+        "id": "production",
+        "mandate": "Produce assets per brief into work/production/ with metadata sidecar files.",
+        "output": "work/production/",
+        "gate": "files"
+      },
+      {
+        "id": "qc",
+        "mandate": "Verify every asset: dimensions, file sizes, metadata completeness, pHash distinctness. Report tool output.",
+        "output": "work/qc/",
+        "gate": "shell"
+      }
+    ],
+    "gates": [
+      {
+        "role": "art-director",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "production",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "qc",
+        "kind": "shell",
+        "commands": [
+          "python3 -c \"import json,sys; m=json.load(open('manifest.json')); assert len(m)>0, 'empty manifest'; print(len(m),'files')\""
+        ]
+      }
+    ]
+  },
+  "app-venture": {
+    "status": "active",
+    "description": "Hasan's app pipeline: software roles + business lens. Discovery first, monetization explicit.",
+    "roles": [
+      {
+        "id": "research",
+        "mandate": "Market/competitor/privacy analysis for the target app. Cite sources; separate fact from inference.",
+        "output": "work/research/",
+        "gate": "files"
+      },
+      {
+        "id": "pm",
+        "mandate": "PRD with monetization model and launch criteria. Each story has acceptance criteria and a revenue/retention link.",
+        "output": "work/pm/",
+        "gate": "files"
+      },
+      {
+        "id": "arch",
+        "mandate": "Architecture + schema. Prefer managed/low-infra for MVP; ADR per non-obvious choice.",
+        "output": "work/arch/",
+        "gate": "files"
+      },
+      {
+        "id": "engineering",
+        "mandate": "Backend+client implementation for MVP per locked contracts. Backend and client merged for small scopes.",
+        "output": "work/engineering/",
+        "gate": "test"
+      },
+      {
+        "id": "accuracy-qa",
+        "mandate": "Verify domain-critical content (prayer times, verse accuracy, medical, tax) against named sources. Report discrepancies verbatim.",
+        "output": "work/accuracy-qa/",
+        "gate": "no-gate"
+      }
+    ],
+    "gates": [
+      {
+        "role": "research",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "pm",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "arch",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "engineering",
+        "kind": "test",
+        "commands": [
+          "python3 -m pytest -q"
+        ]
+      },
+      {
+        "role": "accuracy-qa",
+        "kind": "no-gate"
+      }
+    ]
+  },
+  "research": {
+    "status": "active",
+    "description": "Deep-dive analysis. Synthesis is UNVERIFIED by construction; only tool-run steps are verifiable.",
+    "roles": [
+      {
+        "id": "analyst",
+        "mandate": "Gather and analyze evidence for the question. Every claim tagged fact/inference with source.",
+        "output": "work/analyst/",
+        "gate": "files"
+      },
+      {
+        "id": "verifier",
+        "mandate": "Independently re-run the cheapest decisive checks and dispute unsupported claims.",
+        "output": "work/verifier/",
+        "gate": "files"
+      },
+      {
+        "id": "synthesizer",
+        "mandate": "Produce the final report from analyst+verifier outputs, preserving dispute flags.",
+        "output": "work/synthesizer/",
+        "gate": "no-gate"
+      }
+    ],
+    "gates": [
+      {
+        "role": "analyst",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "verifier",
+        "kind": "files",
+        "required": [
+          "manifest.json"
+        ]
+      },
+      {
+        "role": "synthesizer",
+        "kind": "no-gate"
+      }
+    ]
+  },
+  "asset-management": {
+    "name": "asset-management",
+    "description": "Enterprise asset ledger MVP (fixed assets, depreciation, reports). Synthesized 2026-10-23 for pilot; pending human approval.",
+    "roles": [
+      {
+        "id": "engineering",
+        "mandate": "Implement the asset ledger app + CLI per locked contracts (PRD.md, ARCHITECTURE.md, schema.sql). Straight-line depreciation, status transitions, reports. All logic in a single importable module + thin CLI. No network, no secrets.",
+        "output": "work/engineering/",
+        "gate": "test"
+      },
+      {
+        "id": "qa",
+        "mandate": "Independently author and RUN a pytest suite against work/engineering/app.py. Tests cover every acceptance criterion in PRD.md section 2. Report actual exit codes; never predict results.",
+        "output": "work/qa/",
+        "gate": "test"
+      },
+      {
+        "id": "domain-qa",
+        "mandate": "Verify depreciation math: write verify_depreciation.py implementing the reference table in ARCHITECTURE.md section 4, then run it against work/engineering/app.py and report discrepancies verbatim.",
+        "output": "work/domain-qa/",
+        "gate": "shell"
+      }
+    ],
+    "gates": [
+      {
+        "role": "engineering",
+        "kind": "test",
+        "commands": [
+          "python3 -m pytest -q tests/ 2>/dev/null || python3 -m pytest -q"
+        ],
+        "required_note": "pytest must pass"
+      },
+      {
+        "role": "qa",
+        "kind": "test",
+        "commands": [
+          "python3 -m pytest -q"
+        ]
+      },
+      {
+        "role": "domain-qa",
+        "kind": "shell",
+        "commands": [
+          "python3 verify_depreciation.py"
+        ]
+      }
+    ],
+    "status": "proposed"
+  }
+}
