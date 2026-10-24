@@ -67,29 +67,20 @@ Test suite: 39 tests, all green.
   independent design-qa role, with skill bindings. Full 2-role E2E
   verified green.
 
-### One extra defect found during the live demo
-13. **AMEND-*.md boundary false-positive (found 2026-10-24 on the
-    akar-landing demo run).** `amend` writes
-    `specs/contracts/AMEND-<n>.md` (engine-authored bookkeeping), but the
-    next `mark-built` flagged that file as the CURRENT role writing
-    outside its boundary — hard-blocking the post-amend re-build. The
-    `specs/contracts/AMEND-` subtree is now exempt, with regression test
-    `test_fix_amend_docs_exempt_from_boundary`. Suite: 39 → 40 tests.
-
-#### One more defect found on the live E2E with a real subagent builder
-14. **Design checker missed tokenized font stacks (defect 14, found 2026-10-24
-    on the `akar-e2e` run where a real general-purpose subagent authored the
-    frontend).** The builder tokenized its type system
-    (`--font-display: "Fraunces", ...; font-family: var(--font-display)`) —
-    correct, common practice — but `custom_typography` only matched font
-    names in *direct* `font-family:` declarations, scoring the check MISS
-    (0.85 instead of 1.00). Fixed: the checker now accepts a
-    custom-property definition carrying a non-system font name. Regression
-    test `test_design_gate_tokenized_fonts`. Suite: 40 → 41 tests.
-    Side finding: a stale `__pycache__/design_qa` shadowed the patched
-    checker on one re-gate; `engine_files` pinning in replay-lock is what
-    would have caught that in replay — cache dirs are swept from all
-    shipped trees now.
+#### Skills-proof hardening (v1.3.3, 2026-10-24)
+Closes the honest-claim gap: the engine used to *pin the skill choice* at
+lock (BRIEF SKILLS line) but had **no evidence the builder actually read
+the skill**. Now, for role-sets with `build_policy.skills_proof` (web-ui):
+- `mark-built` REQUIRES `work/<role>/skills-loaded.json` — a JSON object
+  keyed by skill name, each value `{"path": <file read>, "applied": <what
+  it changed>}`, registered in the manifest.
+- **Anti-fabrication:** every cited path must exist on disk; a fake entry
+  rejects the build ("fabricated evidence, build rejected").
+- **Install-aware semantics:** a bound skill that is NOT installed on this
+  machine is reported (`bound skill 'X' not found — proof skipped`), not
+  fatal — discovery/installation is the orchestrator's job; the engine only
+  verifies what it can see.
+- 4 new regression tests (`test_skills_proof_*`); suite 41 → 45.
 
 ## Framing (market audit 4/10)
 - Drop "most powerful" — no longer defensible against ConstraintLoop /

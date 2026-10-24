@@ -325,6 +325,15 @@ def build_brief(run: Path, role: str) -> str:
         parts.append(
             "SKILLS: load these skills before starting (the gate is authoritative; "
             "skills are guidance): " + ", ".join(hints))
+        proof_fmt = (
+            "work/<role>/skills-loaded.json — a JSON object keyed by skill name, "
+            'each value {"path": <file you read>, "applied": <one line: what it changed>}.')
+        parts.append(
+            "SKILLS-PROOF: for each skill you actually load, record the evidence "
+            "in " + proof_fmt + " "
+            "Register skills-loaded.json in manifest.json too. Only skills you genuinely "
+            "read count; a 'path' that does not exist on this machine fails the build "
+            "(fabricated evidence is rejected by mark-built).")
     return "\n".join(parts)
 
 
@@ -457,6 +466,53 @@ def mark_built(run: Path, role: str) -> None:
         if offenders:
             die(f"{role} wrote OUTSIDE work/{role}/ since lock @ {base[:12]}: {offenders}\n"
                 f"subagent violated its boundary — mark-built rejected, gate will not run")
+    # v1.3.3 skills-proof: when the role-set's build_policy requires proof of
+    # skill loading, a hard requirement — no proof, no "built", gate cannot run.
+    # This closes the honest-claim gap: the engine pins the skill CHOICE at
+    # lock; now it also requires EVIDENCE the builder actually read it.
+    try:
+        rs = role_set_by_name(st_role_set(run))
+    except SystemExit:
+        rs = {}
+    pol = rs.get("build_policy", {}) if isinstance(rs, dict) else {}
+    hints = _skill_hints(run, role)
+    if pol.get("skills_proof") and hints:
+        # v1.3.3 skills-proof, honest semantics:
+        #  - every proof entry must cite a file that EXISTS on disk
+        #    (anti-fabrication: a copied-in fake entry dies the build);
+        #  - for each BOUND skill that is actually installed on this
+        #    machine, a proof entry is REQUIRED;
+        #  - a bound skill that is NOT installed is reported, not fatal:
+        #    skill discovery/installation is the orchestrator's job, the
+        #    engine only verifies what it can see.
+        proof = out / "skills-loaded.json"
+        rec = {}
+        if proof.exists():
+            try:
+                rec = json.loads(proof.read_text())
+            except json.JSONDecodeError:
+                die(f"{role} skills-loaded.json is not valid JSON")
+            if not isinstance(rec, dict):
+                die(f"{role} skills-loaded.json must be a JSON object keyed by skill name")
+        for sk, val in rec.items():
+            if not isinstance(val, dict) or not val.get("path") or not val.get("applied"):
+                die(f"{role} skills proof for '{sk}' needs non-empty 'path' and 'applied' fields")
+            pp = Path(os.path.expanduser(str(val["path"])))
+            if not pp.exists():
+                die(f"{role} skills proof for '{sk}' cites a file that does not exist "
+                    f"({val['path']}) — fabricated evidence, build rejected")
+        locs = [Path(os.path.expanduser(l)) for l in pol.get("skills_locations", [])]
+        locs = [l if l.is_absolute() else run / l for l in locs]
+        for sk in hints:
+            cand = next((l / sk / "SKILL.md" for l in locs
+                         if (l / sk / "SKILL.md").exists()), None)
+            if cand is None:
+                print(f"[ATLAS] {role}: bound skill '{sk}' not found on this machine "
+                      f"— proof skipped (orchestrator should install it)")
+                continue
+            if sk not in rec:
+                die(f"{role} has skill '{sk}' installed but no proof entry in "
+                    f"work/{role}/skills-loaded.json — load it and record the evidence")
     st["roles"][role]["status"] = "built"
     st["roles"][role]["files"] = entries
     save_state(run, st)

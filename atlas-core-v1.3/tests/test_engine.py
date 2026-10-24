@@ -817,3 +817,93 @@ def test_design_gate_tokenized_fonts(tmp_path):
     line = [l for l in last.splitlines() if "custom_typography" in l]
     assert line and "[PASS]" in line[-1], line + [s.stdout + s.stderr]
     assert s.returncode == 0, "tokenized-fonts output must pass: " + s.stdout + s.stderr
+
+
+# ---------------------------------------------------------------------------
+# v1.3.3 skills-proof (defect-14 follow-up): the engine must require real,
+# verifiable evidence that a builder actually loaded its bound skills.
+# ---------------------------------------------------------------------------
+
+def _skproof_fixture(tmp_path, with_skill=True, skill_name="demo-design"):
+    """An init->synth->lock->build run whose role-set binds a skill to `ui`
+    and sets build_policy.skills_proof. The skill itself (or not) is placed
+    under a role-set-declared skills_location inside tmp_path so the test is
+    hermetic (never touches /root/.agents/skills)."""
+    rd = tmp_path / "sp"
+    sh(f"python3 {ENGINE} init {rd} 'sp' 'software'", cwd=tmp_path)
+    skills_root = tmp_path / "agents-skills"
+    if with_skill:
+        skdir = skills_root / skill_name
+        skdir.mkdir(parents=True)
+        (skdir / "SKILL.md").write_text("---\nname: demo-design\ndescription: d\n---\nbody\n")
+    rs = tmp_path / "sp-rs.json"
+    rs.write_text(json.dumps({
+        "name": "sp-demo", "description": "skills-proof test role-set",
+        "roles": [{"id": "ui", "mandate": "b", "output": "work/ui/", "gate": "design"}],
+        "gates": [{"role": "ui", "kind": "design", "min_score": 0.5,
+                   "required": ["manifest.json"]}],
+        "skills": [{"role": "ui", "skill": skill_name}],
+        "build_policy": {
+            "skills_proof": True,
+            "skills_locations": [str(tmp_path / "agents-skills")],
+        },
+    }))
+    sh(f"python3 {ENGINE} synth {rd} {rs}", cwd=tmp_path)
+    (rd / "specs" / "contracts" / "PRD.md").write_text("s\n")
+    sh(f"python3 {ENGINE} lock {rd}", cwd=tmp_path)
+    sh(f"python3 {ENGINE} build {rd} ui", cwd=tmp_path)
+    out = rd / "work" / "ui"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "index.html").write_text(
+        '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width">'
+        '<style>body{font-family:Inter}</style></head>'
+        '<body><header role="banner"><main role="main"><h1>x</h1></main>'
+        '<footer role="contentinfo"><p>f</p></footer></body></html>')
+    (out / "manifest.json").write_text(json.dumps(["index.html"]))
+    return rd, out, skill_name
+
+
+def test_skills_proof_missing_dies(tmp_path):
+    """A bound+installed skill with NO proof file must reject mark-built."""
+    rd, out, _ = _skproof_fixture(tmp_path, with_skill=True)
+    s = sh(f"python3 {ENGINE} mark-built {rd} ui", cwd=tmp_path)
+    assert s.returncode != 0
+    assert "skills-loaded.json" in s.stderr or "skills-loaded.json" in s.stdout
+
+
+def test_skills_proof_fabricated_path_dies(tmp_path):
+    """A proof entry citing a non-existent file must be rejected (no
+    fabricated evidence can pass mark-built)."""
+    rd, out, sk = _skproof_fixture(tmp_path, with_skill=True)
+    (out / "skills-loaded.json").write_text(json.dumps({sk: {
+        "path": str(tmp_path / "does-not-exist/SKILL.md"),
+        "applied": "claimed to influence type scale"}}))
+    s = sh(f"python3 {ENGINE} mark-built {rd} ui", cwd=tmp_path)
+    assert s.returncode != 0
+    assert "fabricated" in (s.stdout + s.stderr)
+
+
+def test_skills_proof_valid_passes_and_gate_runs(tmp_path):
+    """A proof entry citing the real SKILL.md passes mark-built; the proof
+    file itself must be registered in the manifest so the boundary check
+    owns it; the design gate then runs normally."""
+    rd, out, sk = _skproof_fixture(tmp_path, with_skill=True)
+    proof = {"path": str(tmp_path / "agents-skills" / sk / "SKILL.md"),
+             "applied": "type scale set to a 1.25 modular ratio"}
+    (out / "skills-loaded.json").write_text(json.dumps({sk: proof}))
+    (out / "manifest.json").write_text(json.dumps(["index.html", "skills-loaded.json"]))
+    s = sh(f"python3 {ENGINE} mark-built {rd} ui", cwd=tmp_path)
+    assert s.returncode == 0, s.stderr
+    g = sh(f"python3 {ENGINE} gate {rd} ui", cwd=tmp_path)
+    assert g.returncode == 0, g.stderr + g.stdout
+
+
+def test_skills_proof_uninstalled_skill_warns_not_fatal(tmp_path):
+    """A bound skill that is NOT installed is reported, not fatal: skill
+    discovery/installation is the orchestrator's job, the engine only
+    verifies what it can see."""
+    rd, out, _ = _skproof_fixture(tmp_path, with_skill=False)
+    s = sh(f"python3 {ENGINE} mark-built {rd} ui", cwd=tmp_path)
+    assert s.returncode == 0, s.stderr
+    combined = s.stdout + s.stderr
+    assert "not found on this machine" in combined

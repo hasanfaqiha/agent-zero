@@ -905,6 +905,15 @@
     "cost": {
       "wall_clock_s": 7200,
       "credits": 40
+    },
+    "notes": "promoted 2026-10-24 by human approval (Hasan)",
+    "build_policy": {
+      "skills_proof": true,
+      "skills_locations": [
+        "/root/.agents/skills/",
+        "~/.agents/skills/",
+        "./.agents/skills/"
+      ]
     }
   }
 }
