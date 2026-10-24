@@ -898,6 +898,25 @@ def test_skills_proof_valid_passes_and_gate_runs(tmp_path):
     assert g.returncode == 0, g.stderr + g.stdout
 
 
+def test_skills_proof_brief_engine_exempt(tmp_path):
+    """v1.3.4 defect-15: the engine writes work/<other>/BRIEF.md at `build`
+    time; mark-built for ANOTHER role must not flag that BRIEF as a
+    boundary violation (BRIEF.md is engine artifact, not builder output)."""
+    rd, out, sk = _skproof_fixture(tmp_path, with_skill=True)
+    # Simulate a second role whose BRIEF.md the engine already created.
+    rd2 = rd / "work" / "other"
+    rd2.mkdir(parents=True, exist_ok=True)
+    (rd2 / "BRIEF.md").write_text("ROLE: other\n")
+    rd2_dir = rd / "work"
+    # Register the file in git so the diff detector can see it untracked.
+    proof = {"path": str(tmp_path / "agents-skills" / sk / "SKILL.md"),
+             "applied": "x"}
+    (out / "skills-loaded.json").write_text(json.dumps({sk: proof}))
+    (out / "manifest.json").write_text(json.dumps(["index.html", "skills-loaded.json"]))
+    s = sh(f"python3 {ENGINE} mark-built {rd} ui", cwd=tmp_path)
+    assert s.returncode == 0, s.stderr + s.stdout
+
+
 def test_skills_proof_uninstalled_skill_warns_not_fatal(tmp_path):
     """A bound skill that is NOT installed is reported, not fatal: skill
     discovery/installation is the orchestrator's job, the engine only

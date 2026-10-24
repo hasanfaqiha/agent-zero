@@ -412,6 +412,12 @@ def mark_built(run: Path, role: str) -> None:
                     # bookkeeping, not builder output — exempt their subtree.
                     if q.startswith("specs/contracts/AMEND-"):
                         continue
+                    # defect-15: work/<x>/BRIEF.md is engine-authored at
+                    # `build` time for ANY role, not builder output — exempt
+                    # by name only (rogue writes to other files in a foreign
+                    # dir are still caught by the state-driven check below).
+                    if _re.match(r"work/[^/]+/BRIEF\.md$", q):
+                        continue
                     if _re.match(r"work/" + _re.escape(role) + r"/GATE-RESULT-[^/]+\.md$", q):
                         continue
                     if q.endswith("/UNVERIFIED-NO-GATE.md") and q.startswith("work/"):
@@ -432,25 +438,33 @@ def mark_built(run: Path, role: str) -> None:
                     for x, xs in st.get("roles", {}).items():
                         if x == role:
                             continue
+                        prefix = f"work/{x}/"
+                        if not q.startswith(prefix):
+                            continue
+                        rel = q[len(prefix):]
+                        # v1.3.4 defect-15: BRIEF.md is engine-authored at
+                        # `build` time for ANY role state (ready/built) —
+                        # a builder never writes BRIEF.md, so it is exempt
+                        # regardless of that role's status.
+                        if rel == "BRIEF.md":
+                            skipped = True
+                            break
                         if xs.get("status") != "built":
                             continue
-                        prefix = f"work/{x}/"
-                        if q.startswith(prefix):
-                            reg = set(xs.get("files") or [])
-                            reg.update(["manifest.json", "BRIEF.md"])
-                            rel = q[len(prefix):]
-                            if rel in reg:
-                                skipped = True
-                                break
-                            if _re2.match(r"GATE-RESULT-[^/]+\.md$", rel):
-                                skipped = True
-                                break
-                            if rel == "UNVERIFIED-NO-GATE.md":
-                                skipped = True
-                                break
-                            if rel.endswith(".cover") or "/__pycache__/" in q:
-                                skipped = True
-                                break
+                        reg = set(xs.get("files") or [])
+                        reg.update(["manifest.json", "BRIEF.md"])
+                        if rel in reg:
+                            skipped = True
+                            break
+                        if _re2.match(r"GATE-RESULT-[^/]+\.md$", rel):
+                            skipped = True
+                            break
+                        if rel == "UNVERIFIED-NO-GATE.md":
+                            skipped = True
+                            break
+                        if rel.endswith(".cover") or "/__pycache__/" in q:
+                            skipped = True
+                            break
                     if skipped:
                         continue
                     out.append(q)

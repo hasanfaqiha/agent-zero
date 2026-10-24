@@ -82,6 +82,23 @@ the skill**. Now, for role-sets with `build_policy.skills_proof` (web-ui):
   verifies what it can see.
 - 4 new regression tests (`test_skills_proof_*`); suite 41 → 45.
 
+### Defect-15 boundary check + binding fix (v1.3.4, 2026-10-24)
+- **Defect 15 (self-caught live)**: `build design-qa` writes
+  `work/design-qa/BRIEF.md` (engine artifact) AFTER `frontend` was built;
+  `mark-built frontend` then flagged that BRIEF as a foreign-dir boundary
+  violation — the engine was rejecting its OWN file. Root cause: the
+  state-driven exemption only covered roles already at status `built`,
+  and the name-based list didn't cover `BRIEF.md` for non-built roles.
+  Fix: `work/<any>/BRIEF.md` is exempt by name only (engine regenerates
+  BRIEF content at `build` time; rogue writes to other files in foreign
+  dirs are still caught). Regression test: `test_skills_proof_brief_engine_exempt`.
+- **Binding fix**: web-ui role-set's design-qa skill binding was
+  `design-taste` (never an installable name — the canonical registry name
+  is `design-taste-frontend`, leonxlnx/taste-skill). This made
+  mark-built's proof check permanently WARN for design-qa. Fixed to
+  `design-taste-frontend`; skill installed locally (2.5MB, v2 tasteskill).
+- Suite: 45 → 46 tests.
+
 ## Framing (market audit 4/10)
 - Drop "most powerful" — no longer defensible against ConstraintLoop /
   ADLC / Compass / spec-kit-157. New positioning: **the orchestrator that
