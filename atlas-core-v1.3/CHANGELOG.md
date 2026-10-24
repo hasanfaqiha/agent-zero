@@ -67,6 +67,15 @@ Test suite: 39 tests, all green.
   independent design-qa role, with skill bindings. Full 2-role E2E
   verified green.
 
+### One extra defect found during the live demo
+13. **AMEND-*.md boundary false-positive (found 2026-10-24 on the
+    akar-landing demo run).** `amend` writes
+    `specs/contracts/AMEND-<n>.md` (engine-authored bookkeeping), but the
+    next `mark-built` flagged that file as the CURRENT role writing
+    outside its boundary — hard-blocking the post-amend re-build. The
+    `specs/contracts/AMEND-` subtree is now exempt, with regression test
+    `test_fix_amend_docs_exempt_from_boundary`. Suite: 39 → 40 tests.
+
 ### Framing (market audit 4/10)
 - Drop "most powerful" — no longer defensible against ConstraintLoop /
   ADLC / Compass / spec-kit-157. New positioning: **the orchestrator that

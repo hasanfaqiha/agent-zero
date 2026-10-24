@@ -759,3 +759,21 @@ def test_engine_file_tamper_blocks_replay(tmp_path):
         dq.write_bytes(orig)
     s = sh(f"python3 {ENGINE} replay {rd}", cwd=rd.parent)
     assert s.returncode == 0, "clean replay must pass: " + s.stdout + s.stderr
+
+
+def test_fix_amend_docs_exempt_from_boundary(tmp_path):
+    """New finding (2026-10-24 akar-landing demo): `amend` writes
+    specs/contracts/AMEND-<n>.md (engine-authored bookkeeping), but the
+    boundary check flagged it as the CURRENT role writing outside its
+    boundary, hard-blocking mark-built. The amend subtree must be exempt."""
+    rd = _mk_run(tmp_path, "am1", [("dev", "files")],
+                 [{"role": "dev", "kind": "files", "required": ["manifest.json"]}], "am1")
+    s = sh(f"python3 {ENGINE} amend {rd} 'spec tweak after gate fail'", cwd=rd.parent)
+    assert s.returncode == 0, s.stdout + s.stderr
+    am = rd / "specs" / "contracts" / "AMEND-1.md"
+    assert am.exists()
+    # now a clean re-build + mark must NOT be tripped by the engine's own amend doc
+    s = sh(f"python3 {ENGINE} build {rd} dev", cwd=rd.parent)
+    assert s.returncode == 0, s.stdout + s.stderr
+    s = sh(f"python3 {ENGINE} mark-built {rd} dev", cwd=rd.parent)
+    assert s.returncode == 0, s.stdout + s.stderr

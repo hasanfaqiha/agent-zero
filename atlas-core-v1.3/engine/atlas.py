@@ -399,6 +399,10 @@ def mark_built(run: Path, role: str) -> None:
                     import re as _re
                     if q in ("replay-lock.json", ".gitignore", "replay-lock.json.tmp"):
                         continue
+                    # Engine-authored contract docs (amend records) are
+                    # bookkeeping, not builder output — exempt their subtree.
+                    if q.startswith("specs/contracts/AMEND-"):
+                        continue
                     if _re.match(r"work/" + _re.escape(role) + r"/GATE-RESULT-[^/]+\.md$", q):
                         continue
                     if q.endswith("/UNVERIFIED-NO-GATE.md") and q.startswith("work/"):
