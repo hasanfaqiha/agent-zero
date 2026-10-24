@@ -777,3 +777,43 @@ def test_fix_amend_docs_exempt_from_boundary(tmp_path):
     assert s.returncode == 0, s.stdout + s.stderr
     s = sh(f"python3 {ENGINE} mark-built {rd} dev", cwd=rd.parent)
     assert s.returncode == 0, s.stdout + s.stderr
+
+
+def test_design_gate_tokenized_fonts(tmp_path):
+    """Defect 14: a builder that tokenizes its font stack
+    (--font-display: "Fraunces"... ; font-family: var(--font-display)) must
+    not be MISSED on custom_typography. Before the fix this real-world
+    pattern scored the check as MISS even though the work shipped real
+    custom typography (caught on the akar-e2e live run)."""
+    rd = tmp_path / "tf1"
+    sh(f"python3 {ENGINE} init {rd} 'tf' 'software'", cwd=tmp_path)
+    rs = tmp_path / "tf-rs.json"
+    rs.write_text(json.dumps({
+        "name": "tf-demo", "description": "d",
+        "roles": [{"id": "ui", "mandate": "b", "output": "work/ui/", "gate": "design"}],
+        "gates": [{"role": "ui", "kind": "design", "min_score": 0.5, "required": ["manifest.json"]}],
+    }))
+    sh(f"python3 {ENGINE} synth {rd} {rs}", cwd=tmp_path)
+    (rd / "specs" / "contracts" / "PRD.md").write_text("s\n")
+    sh(f"python3 {ENGINE} lock {rd}", cwd=tmp_path)
+    sh(f"python3 {ENGINE} build {rd} ui", cwd=tmp_path)
+    out = rd / "work" / "ui"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "index.html").write_text(
+        '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width">'
+        '<link rel="stylesheet" href="a.css"></head>'
+        '<body><header role="banner"><main role="main"><h1>x</h1></main>'
+        '<footer role="contentinfo"><p>f</p></footer></body></html>')
+    (out / "a.css").write_text(
+        ':root{--font-display:"Fraunces",Georgia,serif;--ink:#111}\n'
+        'body{font-family:var(--font-display)}\n')
+    (out / "manifest.json").write_text(json.dumps(["index.html", "a.css"]))
+    sh(f"python3 {ENGINE} mark-built {rd} ui", cwd=rd.parent)
+    s = sh(f"python3 {ENGINE} gate {rd} ui", cwd=rd.parent)
+    ev = (out / "GATE-RESULT-ui.md").read_text()
+    # the custom_typography line in the LATEST report must be PASS, not MISS
+    blocks = ev.split("[gate round")
+    last = blocks[-1]
+    line = [l for l in last.splitlines() if "custom_typography" in l]
+    assert line and "[PASS]" in line[-1], line + [s.stdout + s.stderr]
+    assert s.returncode == 0, "tokenized-fonts output must pass: " + s.stdout + s.stderr

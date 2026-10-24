@@ -51,7 +51,17 @@ def run(out: Path, manifest, threshold: float = 0.5) -> tuple[bool, str]:
                 r"font-family:[^;}]*"
                 r"(Inter|Poppins|Manrope|Space|DM ?[A-Z]|Fira|Source|Archivo|Fraunces|Playfair|Caveat|Geist|Figtree|Instrument|Spectral|Lexend|Outfit|Ubuntu|Rubik|Work ?Sans)",
                 text, re.I))
-            results[check] = non_system or bool(re.search(r"@font-face", text, re.I))
+            # Defect 14 (E2E akar-e2e, 2026-10-24): tokenized fonts — the
+            # real font stack lives in a custom property
+            # (--font-display: "Fraunces", ...) and is applied via
+            # font-family: var(--font-display). The direct-declaration
+            # regex above misses this common, correct pattern. Accept a
+            # custom-property definition carrying a non-system font name.
+            tokenized = bool(re.search(
+                r"--[a-z0-9-]*(?:font|typeface)[a-z0-9-]*\s*:[^;}]*"
+                r"(Inter|Poppins|Manrope|Space|DM ?[A-Z]|Fira|Source|Archivo|Fraunces|Playfair|Caveat|Geist|Figtree|Instrument|Spectral|Lexend|Outfit|Ubuntu|Rubik|Work ?Sans)",
+                text, re.I))
+            results[check] = non_system or tokenized or bool(re.search(r"@font-face", text, re.I))
         elif check == "design_tokens":
             results[check] = bool(re.search(r"--[a-z][a-z0-9-]*\s*:", text))
         elif check == "layout_system":

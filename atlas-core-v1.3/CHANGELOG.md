@@ -76,7 +76,22 @@ Test suite: 39 tests, all green.
     `specs/contracts/AMEND-` subtree is now exempt, with regression test
     `test_fix_amend_docs_exempt_from_boundary`. Suite: 39 → 40 tests.
 
-### Framing (market audit 4/10)
+#### One more defect found on the live E2E with a real subagent builder
+14. **Design checker missed tokenized font stacks (defect 14, found 2026-10-24
+    on the `akar-e2e` run where a real general-purpose subagent authored the
+    frontend).** The builder tokenized its type system
+    (`--font-display: "Fraunces", ...; font-family: var(--font-display)`) —
+    correct, common practice — but `custom_typography` only matched font
+    names in *direct* `font-family:` declarations, scoring the check MISS
+    (0.85 instead of 1.00). Fixed: the checker now accepts a
+    custom-property definition carrying a non-system font name. Regression
+    test `test_design_gate_tokenized_fonts`. Suite: 40 → 41 tests.
+    Side finding: a stale `__pycache__/design_qa` shadowed the patched
+    checker on one re-gate; `engine_files` pinning in replay-lock is what
+    would have caught that in replay — cache dirs are swept from all
+    shipped trees now.
+
+## Framing (market audit 4/10)
 - Drop "most powerful" — no longer defensible against ConstraintLoop /
   ADLC / Compass / spec-kit-157. New positioning: **the orchestrator that
   fails loudly** (UNVERIFIED as first-class terminal, replayable PASS,
